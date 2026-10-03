@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spamton - GitHub Encounter</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none; /* Previne scroll ao jogar no celular */
+        }
+        #gameContainer {
+            margin-top: 20px;
+        }
+        canvas {
+            background-color: #000;
+            border: 4px solid #fff;
+            box-shadow: 0 0 15px lime;
+        }
+        #dialogueBox {
+            width: 300px;
+            min-height: 80px;
+            border: 2px solid #fff;
+            margin: 10px auto;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 14px;
+            background-color: #111;
+        }
+        .spamton-text { color: yellow; }
+        .bracket { color: #00ff00; }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="300" height="300"></canvas>
+        <div id="dialogueBox">
+            <span class="spamton-text">SPAMTON:</span> Olá [Pequeno Desenvolvedor]! VOCÊ TEM [Commits] SUFICIENTES PARA SER UM <span class="bracket">[BIG SHOT]</span>?
+        </div>
+        <p style="font-size: 12px; color: #888;">Toque e arraste o coração vermelho (Alma) para desviar!</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const dialogueBox = document.getElementById('dialogueBox');
+
+        // Estado do Jogo
+        let frame = 0;
+        let attackPhase = 1; // 1: Merge Conflict, 2: 404 Pipis
+        let bullets = [];
+        
+        // A Alma (Jogador)
+        const player = { x: 150, y: 250, size: 12, color: 'red' };
+
+        // Falas dinâmicas
+        const dialogues = [
+            "DEIXE-ME FAZER UM <span class='bracket'>[Pull Request]</span> NA SUA ALMA!",
+            "ERRO 404: <span class='bracket'>[Piedade.exe]</span> NÃO ENCONTRADA!",
+            "ME DÊ SEU <span class='bracket'>[Token de Acesso]</span>!!!"
+        ];
+
+        // Controles Mobile (Toque e Arraste)
+        canvas.addEventListener('touchmove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            player.x = touch.clientX - rect.left;
+            player.y = touch.clientY - rect.top;
+            
+            // Manter dentro da caixa
+            if (player.x < player.size) player.x = player.size;
+            if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
+            if (player.y < player.size) player.y = player.size;
+            if (player.y > canvas.height - player.size) player.y = canvas.height - player.size;
+            
+            e.preventDefault();
+        }, { passive: false });
+
+        // Loop de criação de ataques
+        function spawnAttacks() {
+            if (frame % 300 === 0) {
+                // Muda de fase a cada 5 segundos
+                attackPhase = attackPhase === 1 ? 2 : 1;
+                dialogueBox.innerHTML = `<span class="spamton-text">SPAMTON:</span> ${dialogues[Math.floor(Math.random() * dialogues.length)]}`;
+            }
+
+            if (attackPhase === 1) {
+                // Ataque: Merge Conflict (Linhas horizontais)
+                if (frame % 20 === 0) {
+                    let fromLeft = Math.random() > 0.5;
+                    bullets.push({
+                        x: fromLeft ? 0 : canvas.width,
+                        y: Math.random() * (canvas.height - 50),
+                        vx: fromLeft ? 3 : -3,
+                        vy: 0,
+                        size: 8,
+                        color: fromLeft ? '#00ff00' : '#ff0000',
+                        type: 'conflict'
+                    });
+                }
+            } else {
+                // Ataque: 404 Pipis (Bolinhas azuis quicando)
+                if (frame % 40 === 0) {
+                    bullets.push({
+                        x: Math.random() * canvas.width,
+                        y: 0,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: 2,
+                        size: 10,
+                        color: 'cyan',
+                        type: 'pipis'
+                    });
+                }
+            }
+        }
+
+        // Loop principal do jogo
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            frame++;
+            spawnAttacks();
+
+            // Atualizar e desenhar balas
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+
+                // Física do Pipis (Quicar no chão)
+                if (b.type === 'pipis' && b.y > canvas.height - b.size) {
+                    b.vy *= -0.9;
+                    b.y = canvas.height - b.size;
+                }
+
+                // Desenhar bala
+                ctx.fillStyle = b.color;
+                if (b.type === 'pipis') {
+                    ctx.beginPath();
+                    ctx.ellipse(b.x, b.y, b.size, b.size * 0.7, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else { // Conflict
+                    ctx.font = "14px monospace";
+                    ctx.fillText(b.vx > 0 ? "++" : "--", b.x, b.y);
+                }
+
+                // Colisão simples
+                let dx = b.x - player.x;
+                let dy = b.y - player.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < player.size + b.size) {
+                    // Feedback de dano
+                    canvas.style.borderColor = "red";
+                    setTimeout(() => canvas.style.borderColor = "#fff", 200);
+                }
+
+                // Remover balas fora da tela
+                if (b.x < -20 || b.x > canvas.width + 20 || b.y < -20) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Desenhar Jogador (Alma)
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+            ctx.fill();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Iniciar jogo
+        gameLoop();
+    </script>
+</body>
+</html>
